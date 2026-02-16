@@ -2,12 +2,11 @@ name: Update Proxy List
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 */3 * * *'
   workflow_dispatch:
 
-# 在文件开头加上这段权限声明
 permissions:
-  contents: write  # 显式授予写入权限
+  contents: write
 
 jobs:
   update-proxies:
@@ -22,15 +21,26 @@ jobs:
           python-version: '3.9'
       
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests beautifulsoup4
       
       - name: Fetch proxies
         run: python fetch_proxies.py
       
       - name: Commit and push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
+          
+          # 删除远程的 proxies.txt（如果有）
+          git rm --cached proxies.txt 2>/dev/null || true
+          
+          # 重新添加
           git add proxies.txt
-          git diff --quiet && git diff --staged --quiet || git commit -m "自动更新代理列表 $(date +'%Y-%m-%d')"
-          git push
+          
+          # 提交（强制允许空提交）
+          git commit --allow-empty -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
+          
+          # 强制推送，覆盖远程
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/YRMod/proxy-pool.git HEAD:main --force
