@@ -2,9 +2,8 @@ name: Update Proxy List
 
 on:
   schedule:
-    # 每天凌晨2点自动运行
     - cron: '0 2 * * *'
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   update-proxies:
@@ -12,6 +11,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GH_TOKEN }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -25,11 +26,9 @@ jobs:
         run: python fetch_proxies.py
       
       - name: Commit and push
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           git add proxies.txt
           git diff --quiet && git diff --staged --quiet || git commit -m "自动更新代理列表 $(date +'%Y-%m-%d')"
-          git push https://${GH_TOKEN}@github.com/YRMod/proxy-pool.git HEAD:main
+          git push
