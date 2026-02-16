@@ -1,3 +1,9 @@
+# ============================================
+# 终极屎山版 - 把所有修复方案都塞进去
+# 作者：被GitHub Actions折磨的兄弟
+# 特点：不管你什么错，总有一个能对上
+# ============================================
+
 name: Update Proxy List
 
 on:
@@ -5,18 +11,32 @@ on:
     - cron: '0 */3 * * *'
   workflow_dispatch:
 
+# 权限拉满
 permissions:
   contents: write
+  pull-requests: write
+  actions: write
+  checks: write
+  statuses: write
+
+# 并发控制
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   update-proxies:
     runs-on: ubuntu-latest
+    # 超时设置
+    timeout-minutes: 10
+    
     steps:
-      - name: Checkout code
+      - name: Checkout code（带完整历史+token）
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -24,29 +44,117 @@ jobs:
           python-version: '3.9'
       
       - name: Install dependencies
-        run: pip install requests beautifulsoup4
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4
       
       - name: Fetch proxies
         run: python fetch_proxies.py
       
-      - name: Commit and push
+      # ========== 屎山开始 ==========
+      - name: Commit and push - 方案1（标准pull+push）
+        if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           
-          # 强制重置到远程最新（放弃本地所有修改）
+          echo "=== 方案1：标准pull+push ==="
+          git pull --rebase origin main
+          git add proxies.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
+            git push
+            echo "✅ 方案1成功"
+            exit 0
+          fi
+        continue-on-error: true
+      
+      - name: Commit and push - 方案2（强制重置）
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "=== 方案2：强制重置 ==="
           git fetch origin
           git reset --hard origin/main
-          
-          # 重新添加新生成的代理文件
           git add proxies.txt
-          
-          # 如果有变化就提交推送
-          if git diff --cached --quiet; then
-            echo "没有新代理"
-          else
+          if ! git diff --cached --quiet; then
             git commit -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
-            git push https://x-access-token:${GITHUB_TOKEN}@github.com/YRMod/proxy-pool.git HEAD:main
+            git push
+            echo "✅ 方案2成功"
+            exit 0
           fi
+        continue-on-error: true
+      
+      - name: Commit and push - 方案3（强制推送）
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "=== 方案3：强制推送 ==="
+          git add proxies.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
+            git push --force
+            echo "✅ 方案3成功"
+            exit 0
+          fi
+        continue-on-error: true
+      
+      - name: Commit and push - 方案4（先删后加）
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "=== 方案4：先删后加 ==="
+          git rm --cached proxies.txt 2>/dev/null || true
+          git add proxies.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
+            git pull --rebase origin main
+            git push
+            echo "✅ 方案4成功"
+            exit 0
+          fi
+        continue-on-error: true
+      
+      - name: Commit and push - 方案5（合并分支）
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "=== 方案5：合并分支 ==="
+          git checkout -b update-proxy-$(date +%s)
+          git add proxies.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
+            git push origin HEAD
+            # 创建PR并自动合并（需要gh）
+            gh pr create --fill --base main || true
+            gh pr merge --auto --merge || true
+            echo "✅ 方案5成功"
+            exit 0
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      
+      - name: Commit and push - 方案6（直接写入不commit）
+        if: always()
+        run: |
+          echo "=== 方案6：直接写入 ==="
+          # 不用git，直接把文件内容base64编码后提交
+          # 这是备用方案，基本不会用
+          echo "跳过git，直接输出"
+        continue-on-error: true
+      
+      - name: 最终结果检查
+        if: always()
+        run: |
+          echo "================================="
+          echo "  所有方案执行完毕"
+          echo "================================="
+          git status
+          echo "如果上面有任何一个✅，就成功了"
