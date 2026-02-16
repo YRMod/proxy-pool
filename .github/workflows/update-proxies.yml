@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -29,21 +30,23 @@ jobs:
         run: python fetch_proxies.py
       
       - name: Commit and push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           
-          # 先拉取远程更新，失败则强制重置
+          # 强制重置到远程最新（放弃本地所有修改）
           git fetch origin
           git reset --hard origin/main
           
-          # 添加文件
+          # 重新添加新生成的代理文件
           git add proxies.txt
           
-          # 检查是否有变化
+          # 如果有变化就提交推送
           if git diff --cached --quiet; then
-            echo "没有新代理，跳过提交"
+            echo "没有新代理"
           else
             git commit -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
-            git push
+            git push https://x-access-token:${GITHUB_TOKEN}@github.com/YRMod/proxy-pool.git HEAD:main
           fi
