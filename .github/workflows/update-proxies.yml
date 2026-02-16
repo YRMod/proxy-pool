@@ -12,7 +12,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}  # GitHub 自带的 token，不用你设置
       
       - name: Set up Python
         uses: actions/setup-python@v4
