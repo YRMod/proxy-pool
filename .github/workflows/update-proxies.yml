@@ -5,14 +5,16 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+# 在文件开头加上这段权限声明
+permissions:
+  contents: write  # 显式授予写入权限
+
 jobs:
   update-proxies:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # GitHub 自带的 token，不用你设置
       
       - name: Set up Python
         uses: actions/setup-python@v4
