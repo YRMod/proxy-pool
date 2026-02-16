@@ -27,20 +27,19 @@ jobs:
         run: python fetch_proxies.py
       
       - name: Commit and push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           
-          # 删除远程的 proxies.txt（如果有）
-          git rm --cached proxies.txt 2>/dev/null || true
+          # 先拉取远程更新（关键！）
+          git pull --rebase origin main
           
-          # 重新添加
           git add proxies.txt
           
-          # 提交（强制允许空提交）
-          git commit --allow-empty -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
-          
-          # 强制推送，覆盖远程
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/YRMod/proxy-pool.git HEAD:main --force
+          # 如果有变化才提交
+          if git diff --cached --quiet; then
+            echo "没有新代理，跳过提交"
+          else
+            git commit -m "自动更新代理列表 $(date +'%Y-%m-%d_%H:%M')"
+            git push
+          fi
